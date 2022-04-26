@@ -18,12 +18,14 @@ use {
 
 #[cfg(not(target_family = "windows"))]
 use {
+    aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit},
     sha1::Sha1,
+    pbkdf2::pbkdf2,
+    hmac::Hmac,
     keyring::{
         Entry,
         credential::{PlatformCredential, LinuxCredential}
     },
-    aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit},
 };
 
 #[cfg(target_family = "windows")]
@@ -135,7 +137,7 @@ fn decrypt_master_key(password: &mut Vec<u8>) -> std::io::Result<Vec<u8>> {
     let salt = b"saltysalt";
     let rounds = 1;
     let mut res: [u8; 16] = [0; 16];
-    pbkdf2::pbkdf2::<hmac::Hmac<Sha1>>(password, salt, rounds, &mut res);
+    pbkdf2::<Hmac<Sha1>>(password, salt, rounds, &mut res);
     Ok(res.to_vec())
 }
 
