@@ -9,7 +9,3 @@ $ git clone https://github.com/jdxgfty/chrome_passwords.git
 $ cd chrome_passwords
 $ cargo build --release
 ```
-
-**Note:**
-
-Only Windows is supported at this moment.
