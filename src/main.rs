@@ -186,12 +186,12 @@ fn extract_passwords(key: &Vec<u8>) -> Result<(), Box<dyn Error>> {
         let password_value = statement.read::<Vec<u8>>(2)?;
 
         let decrypted_pass = decrypt_password(&password_value, &key)
-            .unwrap_or("<couldn't decrypt password>".as_bytes().to_vec());
+            .unwrap_or("<couldn't decrypt password>".to_owned());
         println!(
             "{}; {}; {}",
             action_url,
             username_value,
-            String::from_utf8(decrypted_pass)?
+            decrypted_pass
         );
     }
 
@@ -202,7 +202,7 @@ fn extract_passwords(key: &Vec<u8>) -> Result<(), Box<dyn Error>> {
 fn decrypt_password(
     password: &Vec<u8>,
     key: &Vec<u8>,
-) -> Result<Vec<u8>, Box<dyn Error>> {
+) -> Result<String, Box<dyn Error>> {
     let iv = &password[3..15];
     let payload = &password[15..];
 
@@ -210,7 +210,8 @@ fn decrypt_password(
     let aes_key = Key::from_slice(key);
     let cipher = Aes256Gcm::new(aes_key);
 
-    let plaintext = cipher.decrypt(nonce, payload).or(Err(""))?;
+    let plaintext_vec = cipher.decrypt(nonce, payload).or(Err(""))?;
+    let plaintext = String::from_utf8(plaintext_vec)?;
     Ok(plaintext)
 }
 
@@ -219,7 +220,7 @@ fn decrypt_password(
 fn decrypt_password(
     password: &Vec<u8>,
     key: &Vec<u8>
-) -> Result<Vec<u8>, Box<dyn Error>> {
+) -> Result<String, Box<dyn Error>> {
     type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
 
     let key: [u8; 16] = key.as_slice().try_into()?;
@@ -228,9 +229,10 @@ fn decrypt_password(
     let mut buf_vec = vec![0; payload.len()];
     let mut buf = buf_vec.as_mut_slice();
 
-    let plaintext = Aes128CbcDec::new(&key.into(), &iv.into())
+    let plaintext_slice = Aes128CbcDec::new(&key.into(), &iv.into())
         .decrypt_padded_b2b_mut::<Pkcs7>(payload, &mut buf)
         .or(Err(""))?;
+    let plaintext = String::from_utf8(plaintext_slice.to_vec())?;
 
-    Ok(plaintext.to_vec())
+    Ok(plaintext)
 }
