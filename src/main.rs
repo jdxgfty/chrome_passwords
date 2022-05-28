@@ -28,6 +28,12 @@ use {
     },
 };
 
+#[cfg(any(
+    target_os = "macos",
+    target_os = "ios"
+))]
+use colored::*;
+
 #[cfg(target_family = "windows")]
 lazy_static! {
     static ref HOME: String = std::env::var("USERPROFILE").unwrap_or_else(|_| std::process::exit(0));
@@ -44,6 +50,11 @@ lazy_static! {
 }
 
 fn main() {
+    #![allow(unused_unsafe)]
+    #[cfg(any(
+        target_family = "windows",
+        all(not(target_os = "macos"), not(target_os = "ios"))
+    ))]
     unsafe {
         let e = || -> Result<(), Box<dyn Error>> {
             let mut key = read_master_key()?;
@@ -55,6 +66,15 @@ fn main() {
         std::fs::remove_file("db_copy.sqlite3").unwrap_or_default();
         std::process::exit(0);
     };
+
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "ios"
+    ))]
+    {
+        eprintln!("{} MacOS is not supported at this moment", "!".red());
+        std::process::exit(1);
+    }
 }
 
 #[cfg(target_family = "windows")]
