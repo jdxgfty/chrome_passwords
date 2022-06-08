@@ -1,5 +1,4 @@
 use lazy_static::lazy_static;
-use sqlite;
 use std::error::Error;
 use std::collections::HashMap;
 use std::path;
@@ -62,7 +61,7 @@ fn main() {
             extract_passwords(&master_key)?;
             Ok(())
         };
-        if let Err(_) = e() {}
+        if e().is_err() {}
         std::fs::remove_file("db_copy.sqlite3").unwrap_or_default();
         std::process::exit(0);
     };
@@ -118,7 +117,7 @@ fn read_master_key() -> Result<Vec<u8>, Box<dyn Error>> {
 // https://stackoverflow.com/questions/65969779/rust-ffi-with-windows-cryptounprotectdata
 #[cfg(target_family = "windows")]
 unsafe fn decrypt_master_key(
-    et_bytes: &mut Vec<u8>,
+    et_bytes: &mut [u8],
 ) -> Result<Vec<u8>, Box<dyn Error>> {
     let size = u32::try_from(et_bytes.len())?;
 
@@ -153,7 +152,7 @@ unsafe fn decrypt_master_key(
 }
 
 #[cfg(target_family = "unix")]
-fn decrypt_master_key(password: &mut Vec<u8>) -> std::io::Result<Vec<u8>> {
+fn decrypt_master_key(password: &mut [u8]) -> std::io::Result<Vec<u8>> {
     let salt = b"saltysalt";
     let rounds = 1;
     let mut res: [u8; 16] = [0; 16];
@@ -161,7 +160,7 @@ fn decrypt_master_key(password: &mut Vec<u8>) -> std::io::Result<Vec<u8>> {
     Ok(res.to_vec())
 }
 
-fn extract_passwords(key: &Vec<u8>) -> Result<(), Box<dyn Error>> {
+fn extract_passwords(key: &[u8]) -> Result<(), Box<dyn Error>> {
     let login_data_path = path::PathBuf::new()
         .join(HOME.as_str())
         .join(PATHS[std::env::consts::FAMILY])
@@ -185,7 +184,7 @@ fn extract_passwords(key: &Vec<u8>) -> Result<(), Box<dyn Error>> {
         let username_value = statement.read::<String>(1)?;
         let password_value = statement.read::<Vec<u8>>(2)?;
 
-        let decrypted_pass = decrypt_password(&password_value, &key)
+        let decrypted_pass = decrypt_password(&password_value, key)
             .unwrap_or("<couldn't decrypt password>".to_owned());
         println!(
             "{}; {}; {}",
@@ -200,8 +199,8 @@ fn extract_passwords(key: &Vec<u8>) -> Result<(), Box<dyn Error>> {
 
 #[cfg(target_family = "windows")]
 fn decrypt_password(
-    password: &Vec<u8>,
-    key: &Vec<u8>,
+    password: &[u8],
+    key: &[u8],
 ) -> Result<String, Box<dyn Error>> {
     let iv = &password[3..15];
     let payload = &password[15..];
@@ -218,19 +217,19 @@ fn decrypt_password(
 
 #[cfg(target_family = "unix")]
 fn decrypt_password(
-    password: &Vec<u8>,
-    key: &Vec<u8>
+    password: &[u8],
+    key: &[u8]
 ) -> Result<String, Box<dyn Error>> {
     type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
 
-    let key: [u8; 16] = key.as_slice().try_into()?;
+    let key: [u8; 16] = key.try_into()?;
     let payload = &password[3..];
     let iv = [0x20; 16];
     let mut buf_vec = vec![0; payload.len()];
-    let mut buf = buf_vec.as_mut_slice();
+    let buf = buf_vec.as_mut_slice();
 
     let plaintext_slice = Aes128CbcDec::new(&key.into(), &iv.into())
-        .decrypt_padded_b2b_mut::<Pkcs7>(payload, &mut buf)
+        .decrypt_padded_b2b_mut::<Pkcs7>(payload, buf)
         .or(Err(""))?;
     let plaintext = String::from_utf8(plaintext_slice.to_vec())?;
 
