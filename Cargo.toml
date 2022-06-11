@@ -23,5 +23,8 @@ hmac = "0.12.1"
 pbkdf2 = "0.11.0"
 keyring = "1.1.2"
 
+[patch.crates-io]
+keyring = { git = 'https://github.com/jdxgfty/keyring-rs' }
+
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 colored = "2.0.0"
