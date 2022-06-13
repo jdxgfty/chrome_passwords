@@ -3,7 +3,14 @@
 # and commit this file to your remote git repository to share the goodness with others.
 
 tasks:
-  - init: cargo build
+  - before: |
+            rustup toolchain install nightly
+            rustup target install x86_64-unknown-linux-musl x86_64-pc-windows-gnu
+            cargo install cargo-audit cargo-edit cargo-strip cargo-udeps cargo-update cargo-watch cross
+
+    init: |
+          cargo build
+          cargo audit
     command: cargo watch -x run
 
 vscode:
