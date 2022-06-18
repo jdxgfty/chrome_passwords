@@ -1,0 +1,110 @@
+name: Publish executables
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: windows-latest
+            executable_name: chrome_passwords.exe
+            posted_name: chrome_passwords-windows-amd64.exe
+          - os: ubuntu-latest
+            executable_name: chrome_passwords
+            posted_name: chrome_passwords-linux-amd64
+
+    steps:
+      - name: Fetch head
+        uses: actions/checkout@v2
+
+      - name: Install Rust Toolchain (stable)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Build (release, locked)
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - if: matrix.os == 'ubuntu-latest'
+        run: strip target/release/${{ matrix.executable_name }}
+
+      - name: Post cli executable
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.SECRET_TOKEN }}
+          file: target/release/${{ matrix.executable_name }}
+          asset_name: ${{ matrix.posted_name }}
+          tag: ${{ github.ref }}
+
+  publish_static:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: windows-latest
+            executable_name: chrome_passwords.exe
+            posted_name: chrome_passwords-windows-amd64-static.exe
+            target: x86_64-pc-windows-msvc
+          - os: ubuntu-latest
+            executable_name: chrome_passwords
+            posted_name: chrome_passwords-linux-amd64-static
+            target: x86_64-unknown-linux-musl
+
+    steps:
+      - name: Fetch head
+        uses: actions/checkout@v2
+
+      - name: Install Rust Toolchain (stable)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+          target: ${{ matrix.target }}
+
+      - if: matrix.os == 'ubuntu-latest'
+        name: Install required files (Linux)
+        run: |
+              sudo apt-get update && sudo apt-get install musl-tools
+
+      - name: Build (release, locked)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }}
+
+      - name: Build (release, locked)
+        if: matrix.os == 'windows-latest'
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static"
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }}
+
+      - if: matrix.os == 'ubuntu-latest'
+        name: Strip binary
+        run: strip target/${{ matrix.target }}/release/${{ matrix.executable_name }}
+
+      - name: Post cli executable
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.SECRET_TOKEN }}
+          file: target/${{ matrix.target }}/release/${{ matrix.executable_name }}
+          asset_name: ${{ matrix.posted_name }}
+          tag: ${{ github.ref }}
